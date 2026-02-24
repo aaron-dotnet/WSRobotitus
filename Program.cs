@@ -1,6 +1,5 @@
-﻿using System.Text;
-using System.Xml.Linq;
-using static System.Net.WebUtility;
+﻿using static c_Functions;
+
 
 internal class Program
 {
@@ -10,48 +9,38 @@ internal class Program
     private static string _referer = "https://robotitus.com/";
     private static async Task Main(string[] args)
     {
-        using c_Scraper scraper = new()
+        string content = string.Empty;
+        using (c_Scraper scraper = new())
         {
-            Host = _host,
-            Referer = _referer
-        };
+            scraper.Host = _host;
+            scraper.Referer = _referer;
+            content = await scraper.Get(URL);
+        }
 
-        string content = await scraper.Get(URL);
+        // si no hay nada se sale.
+        if (string.IsNullOrEmpty(content)) return;
+
         content = GetString(content, "<main", "</main>");
-
         string navPart = GetString(content, "<nav", "</nav>");
         content = content.Replace(navPart, "").Replace("&nbsp;", "").Replace("&hellip;", "");
 
         ParseContent(content);
-        // ToDo: Mejorar filtro, listar articulos, y paginacion y leer un articulo.
     }
     private static void ParseContent(string content)
     {
-        XElement xe = XElement.Parse(content);
-        //SaveToFile("filtered.xml", content);
-    }
-    private static void SaveToFile(string fileName, string content)
-    {
-        Encoding encoding = Encoding.UTF8;
-        System.IO.File.WriteAllText(fileName, content, encoding);
-    }
-    private static string GetString(string fullString, string startStr, string endStr,
-                                    int excessAmount = 0, bool firstCoincidence = false)
-    {
-        int startWord = fullString.IndexOf(startStr, StringComparison.OrdinalIgnoreCase);
-        if (startWord == -1) return string.Empty;
+        c_NewsParser parser = new();
+        List<c_NewsItem> news = parser.Parse(content);
 
-        int endWord;
 
-        if (firstCoincidence)
+        Console.WriteLine($"Extracted {news.Count} news items.");
+        foreach (c_NewsItem item in news)
         {
-            endWord = fullString.IndexOf(endStr, fullString.IndexOf(startStr), StringComparison.OrdinalIgnoreCase);
+            Console.WriteLine(new string('-', 20));
+            Console.WriteLine($"Title: {item.Title}");
+            Console.WriteLine($"Link: {item.Link}");
+            Console.WriteLine("Description: " + item.Description);
+            Console.WriteLine("Date: " + item.Date);
+            Console.WriteLine($"Image: {item.Image}");
         }
-        else
-        {
-            endWord = fullString.LastIndexOf(endStr, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return fullString.AsSpan(startWord, endWord - startWord + endStr.Length - excessAmount).ToString();
     }
 }

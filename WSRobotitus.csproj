@@ -7,4 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Exclude test sources from the main project build when tests live under Tests/ -->
+    <Compile Remove="Tests\**\*.cs" />
+  </ItemGroup>
+
 </Project>
