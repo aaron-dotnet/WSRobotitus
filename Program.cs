@@ -39,8 +39,8 @@ internal class Program
             Console.WriteLine($"Title: {item.Title}");
             Console.WriteLine($"Link: {item.Link}");
             Console.WriteLine("Description: " + item.Description);
-            Console.WriteLine("Date: " + item.Date);
-            Console.WriteLine($"Image: {item.Image}");
+            Console.WriteLine($"Date: {item.Date:dd/MM/yyyy HH:mm:ss}");
+            Console.WriteLine($"Image: {item.ImageLink}");
         }
     }
 }

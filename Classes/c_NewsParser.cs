@@ -2,108 +2,85 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using System.Globalization;
 
 public class c_NewsParser
 {
     public List<c_NewsItem> Parse(string content)
     {
-        var list = new List<c_NewsItem>();
-        if (string.IsNullOrWhiteSpace(content)) return list;
+        XElement root = XElement.Parse(content);
 
-        XElement? root = null;
-        try
+        var articles = root.Descendants("div")
+            .Where(d => d.Attribute("class").Value.Contains("news-post"));
+
+        return articles.Select(ExtractNewsItem).ToList();
+    }
+
+    private c_NewsItem ExtractNewsItem(XElement article)
+    {
+        return new c_NewsItem
         {
-            root = XElement.Parse(content);
-        }
-        catch
-        {
-            try
-            {
-                root = XElement.Parse($"<root>{content}</root>");
-            }
-            catch
-            {
-                return list;
-            }
-        }
+            Title = ExtractTitle(article),
+            Link = ExtractLink(article),
+            ImageLink = ExtractImage(article),
+            Description = ExtractDescription(article),
+            Author = ExtractAuthor(article),
+            Date = ExtractDate(article)
+        };
+    }
 
-        List<XElement> posts = root.Descendants("div").Where(d => (((string)d.Attribute("class")) ?? "").Contains("news-post")).ToList();
-        foreach (var art in posts)
-        {
-            try
-            {
-                var h2 = art.Descendants("h2").FirstOrDefault();
-                var aTitle = h2?.Element("a");
-                string title = aTitle?.Value?.Trim() ?? string.Empty;
-                string link = aTitle?.Attribute("href")?.Value ?? string.Empty;
+    private string ExtractTitle(XElement article)
+    {
+        return article.Descendants("h2").First().Element("a").Value.Trim();
+    }
 
-                var img = art.Descendants("img").FirstOrDefault();
-                string image = string.Empty;
-                if (img != null)
-                {
-                    image = img.Attribute("src")?.Value ?? string.Empty;
-                    if (string.IsNullOrEmpty(image))
-                    {
-                        var srcset = img.Attribute("srcset")?.Value ?? string.Empty;
-                        if (!string.IsNullOrEmpty(srcset))
-                        {
-                            var first = srcset.Split(',').FirstOrDefault()?.Trim();
-                            if (!string.IsNullOrEmpty(first))
-                            {
-                                var parts = first.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                                image = parts[0];
-                            }
-                        }
-                    }
-                }
+    private string ExtractLink(XElement article)
+    {
+        return article.Descendants("h2").First().Element("a").Attribute("href").Value;
+    }
 
-                var postContent = art.Descendants().FirstOrDefault(e => (((string)e.Attribute("class")) ?? "").Contains("post-content"));
-                string description = postContent?.Elements("p").FirstOrDefault()?.Value?.Trim() ?? string.Empty;
+    private string ExtractImage(XElement article)
+    {
+        XElement img = article.Descendants("img").First();
+        var src = img.Attribute("src")?.Value;
 
-                var meta = art.Descendants().FirstOrDefault(e => (((string)e.Attribute("class")) ?? "").Contains("entry-meta"));
-                string author = string.Empty;
-                string dateIso = string.Empty;
-                if (meta != null)
-                {
-                    var textNodes = meta.Nodes().OfType<XText>().Select(t => t.Value.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                    if (textNodes.Count > 0)
-                        author = textNodes[0].Replace("\u00A0", " ").Trim();
+        if (!string.IsNullOrEmpty(src))
+            return src;
 
-                    var timeEl = meta.Descendants().FirstOrDefault(e => e.Name.LocalName == "time");
-                    if (timeEl != null)
-                    {
-                        var dtAttr = timeEl.Attribute("datetime")?.Value;
-                        if (!string.IsNullOrEmpty(dtAttr))
-                            dateIso = dtAttr;
-                        else
-                        {
-                            var txt = timeEl.Value?.Trim();
-                            if (DateTime.TryParse(txt, new CultureInfo("es-ES"), DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
-                                dateIso = dt.ToString("o");
-                            else if (DateTime.TryParse(txt, out dt))
-                                dateIso = dt.ToString("o");
-                        }
-                    }
-                }
+        var srcset = img.Attribute("srcset").Value;
+        var firstUrl = srcset.Split(',').First().Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).First();
 
-                var item = new c_NewsItem
-                {
-                    Title = title,
-                    Author = author,
-                    Date = DateTime.Parse(dateIso),
-                    Description = description,
-                    Link = link,
-                    Image = image
-                };
-                list.Add(item);
-            }
-            catch
-            {
-                continue;
-            }
-        }
+        return firstUrl;
+    }
 
-        return list;
+    private string ExtractDescription(XElement article)
+    {
+        var postContent = article.Descendants()
+            .First(e => e.Attribute("class")?.Value.Contains("post-content") ?? false);
+
+        return postContent.Elements("p").First().Value.Trim();
+    }
+
+    private string ExtractAuthor(XElement article)
+    {
+        var meta = article.Descendants()
+            .First(e => e.Attribute("class")?.Value.Contains("entry-meta") ?? false);
+
+        var textNode = meta.Nodes()
+            .OfType<XText>()
+            .FirstOrDefault()
+            ?.Value.Trim()
+            .Replace("\u00A0", " ").Trim();
+
+        return textNode ?? string.Empty;
+    }
+
+    private DateTime ExtractDate(XElement article)
+    {
+        var meta = article.Descendants()
+            .First(e => e.Attribute("class")?.Value.Contains("entry-meta") ?? false);
+
+        var dateStr = meta.Descendants("time").First().Attribute("datetime").Value;
+
+        return DateTime.Parse(dateStr);
     }
 }

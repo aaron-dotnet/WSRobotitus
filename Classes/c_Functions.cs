@@ -3,7 +3,6 @@ using System.Text;
 
 public static class c_Functions
 {
-    public enum LogLevel { INFO, WARN, ERROR }
     private static readonly Lazy<string> _configPath = new(() => InitializeConfigPath());
     private static readonly object _syncLock = new();
 
@@ -14,6 +13,8 @@ public static class c_Functions
 
         try
         {
+            // $HOME/.config/wsrobotitus
+            // %UserProfile%\.config\wsrobotitus
             Directory.CreateDirectory(configPath);
         }
         catch (Exception ex)
