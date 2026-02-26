@@ -9,6 +9,7 @@ internal class Program
     private static string _referer = "https://robotitus.com/";
     private static async Task Main(string[] args)
     {
+        //Log("Init");
         string content = string.Empty;
         using (c_Scraper scraper = new())
         {
@@ -37,6 +38,7 @@ internal class Program
         {
             Console.WriteLine(new string('-', 20));
             Console.WriteLine($"Title: {item.Title}");
+            Console.WriteLine($"Author: {item.Author}");
             Console.WriteLine($"Link: {item.Link}");
             Console.WriteLine("Description: " + item.Description);
             Console.WriteLine($"Date: {item.Date:dd/MM/yyyy HH:mm:ss}");

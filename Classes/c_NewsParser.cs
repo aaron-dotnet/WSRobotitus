@@ -1,86 +1,88 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Xml.Linq;
+using static c_Functions;
 
 public class c_NewsParser
 {
     public List<c_NewsItem> Parse(string content)
     {
-        XElement root = XElement.Parse(content);
+        if (string.IsNullOrWhiteSpace(content)) return [];
 
-        var articles = root.Descendants("div")
-            .Where(d => d.Attribute("class").Value.Contains("news-post"));
+        try
+        {
+            XElement root = XElement.Parse(content);
+            var articles = root.Descendants("div")
+                .Where(d => d.Attribute("class")?.Value?
+                .Contains("news-post") == true)
+                .Select(ExtractNewsItem)
+                .ToList();
 
-        return articles.Select(ExtractNewsItem).ToList();
+            return articles;
+        }
+        catch (Exception ex)
+        {
+            Log(ex.Message, LogLevel.ERROR);
+            return [];
+        }
     }
-
     private c_NewsItem ExtractNewsItem(XElement article)
     {
-        return new c_NewsItem
-        {
-            Title = ExtractTitle(article),
-            Link = ExtractLink(article),
-            ImageLink = ExtractImage(article),
-            Description = ExtractDescription(article),
-            Author = ExtractAuthor(article),
-            Date = ExtractDate(article)
-        };
+        XElement? h2 = article.Descendants("h2").FirstOrDefault();
+        XElement? meta = GetByClass(article, "entry-meta");
+        XElement? content = GetByClass(article, "post-content");
+
+        XElement? anchor = h2?.Element("a");
+
+        return new c_NewsItem(
+            Title: GetFirstText(anchor),
+            Link: anchor?.Attribute("href")?.Value ?? string.Empty,
+            ImageLink: GetImageSrc(article) ?? string.Empty,
+            Description: GetFirstText(content?.Element("p")),
+            Author: GetFirstText(meta?.Nodes().OfType<XText>().FirstOrDefault()),
+            Date: ExtractDate(meta)
+        );
     }
 
-    private string ExtractTitle(XElement article)
+    private static XElement? GetByClass(XElement root, string className) =>
+        root.Descendants()
+            .FirstOrDefault(e => e.Attribute("class")?.Value?
+            .Contains(className) == true);
+
+    private static string GetFirstText(XNode? node)
     {
-        return article.Descendants("h2").First().Element("a").Value.Trim();
+        if (node is null) return string.Empty;
+        if (node is XElement el) return el.Value.Trim();
+        if (node is XText tx) return tx.Value.Trim();
+
+        return string.Empty;
     }
 
-    private string ExtractLink(XElement article)
+    private static string? GetImageSrc(XElement article)
     {
-        return article.Descendants("h2").First().Element("a").Attribute("href").Value;
+        // busca la tag <img>
+        XElement? img = article.Descendants("img").FirstOrDefault();
+        if (img == null) return null;
+
+        // revisa si tiene una imagen en el atributo 'src'
+        string? source = img.Attribute("src")?.Value;
+        if (!string.IsNullOrEmpty(source)) return source;
+
+        // caso contrario busca en el atributo 'srcset'
+        // y solo obtiene el primer enlace (part)
+        string? srcset = img.Attribute("srcset")?.Value;
+        return srcset?.Split(',')
+            .Select(part => part.Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
+            .FirstOrDefault(url => !string.IsNullOrEmpty(url));
     }
 
-    private string ExtractImage(XElement article)
+    private static DateTime ExtractDate(XElement? meta)
     {
-        XElement img = article.Descendants("img").First();
-        var src = img.Attribute("src")?.Value;
+        if (meta == null) return DateTime.MinValue;
+        //const string iso = "yyyy-MM-ddTHH:mm:ssK";
 
-        if (!string.IsNullOrEmpty(src))
-            return src;
+        string? dateStr = meta.Descendants("time")
+            .FirstOrDefault()?.Attribute("datetime")?.Value;
 
-        var srcset = img.Attribute("srcset").Value;
-        var firstUrl = srcset.Split(',').First().Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).First();
-
-        return firstUrl;
-    }
-
-    private string ExtractDescription(XElement article)
-    {
-        var postContent = article.Descendants()
-            .First(e => e.Attribute("class")?.Value.Contains("post-content") ?? false);
-
-        return postContent.Elements("p").First().Value.Trim();
-    }
-
-    private string ExtractAuthor(XElement article)
-    {
-        var meta = article.Descendants()
-            .First(e => e.Attribute("class")?.Value.Contains("entry-meta") ?? false);
-
-        var textNode = meta.Nodes()
-            .OfType<XText>()
-            .FirstOrDefault()
-            ?.Value.Trim()
-            .Replace("\u00A0", " ").Trim();
-
-        return textNode ?? string.Empty;
-    }
-
-    private DateTime ExtractDate(XElement article)
-    {
-        var meta = article.Descendants()
-            .First(e => e.Attribute("class")?.Value.Contains("entry-meta") ?? false);
-
-        var dateStr = meta.Descendants("time").First().Attribute("datetime").Value;
-
-        return DateTime.Parse(dateStr);
+        return DateTime.TryParse(dateStr, out var result) ? result : DateTime.MinValue;
     }
 }
