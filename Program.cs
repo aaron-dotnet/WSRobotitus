@@ -5,16 +5,16 @@ internal class Program
 {
     //string main_url = "https://robotitus.com";
     const string URL = "https://robotitus.com/category/tecnologia";
-    private static string _host = "robotitus.com";
-    private static string _referer = "https://robotitus.com/";
+    const string HOST = "robotitus.com";
+    const string REFERER = "https://robotitus.com/";
     private static async Task Main(string[] args)
     {
         //Log("Init");
         string content = string.Empty;
         using (c_Scraper scraper = new())
         {
-            scraper.Host = _host;
-            scraper.Referer = _referer;
+            scraper.Host = HOST;
+            scraper.Referer = REFERER;
             content = await scraper.Get(URL);
         }
 

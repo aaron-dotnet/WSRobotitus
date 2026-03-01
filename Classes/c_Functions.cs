@@ -4,7 +4,7 @@ using System.Text;
 public static class c_Functions
 {
     private static readonly Lazy<string> _configPath = new(() => InitializeConfigPath());
-    private static readonly object _syncLock = new();
+    private static readonly Lock _syncLock = new();
 
     private static string InitializeConfigPath()
     {
@@ -29,10 +29,7 @@ public static class c_Functions
     {
         string configPaht = _configPath.Value;
 
-        if (string.IsNullOrEmpty(configPaht))
-        {
-            return;
-        }
+        if (string.IsNullOrEmpty(configPaht)) return;
 
         string logPath = Path.Combine(configPaht, "log.txt");
         lock (_syncLock)
@@ -49,8 +46,7 @@ public static class c_Functions
     }
     public static void SaveToFile(string fileName, string content)
     {
-        Encoding encoding = Encoding.UTF8;
-        File.WriteAllText(fileName, content, encoding);
+        File.WriteAllText(fileName, content, Encoding.UTF8);
     }
     public static string GetString(string fullString, string startStr, string endStr,
                                     int excessAmount = 0, bool firstCoincidence = false)
@@ -58,17 +54,19 @@ public static class c_Functions
         int startWord, endWord;
         StringComparison comparison = StringComparison.OrdinalIgnoreCase;
 
+        // searching for start string
         startWord = fullString.IndexOf(startStr, comparison);
         if (startWord == -1) return string.Empty;
 
-        if (firstCoincidence)
+        // limiting the search for end string
+        endWord = firstCoincidence switch
         {
-            endWord = fullString.IndexOf(endStr, fullString.IndexOf(startStr), comparison);
-        }
-        else
-        {
-            endWord = fullString.LastIndexOf(endStr, comparison);
-        }
+            false => fullString.LastIndexOf(endStr, comparison),
+            _ => fullString.IndexOf(endStr, fullString.IndexOf(startStr), comparison),
+        };
+
+        // if end string is not found or is before start string, return empty
+        if (endWord == -1 || endWord < startWord) return string.Empty;
 
         return fullString.AsSpan(startWord, endWord - startWord + endStr.Length - excessAmount).ToString();
     }
