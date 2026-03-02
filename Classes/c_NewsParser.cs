@@ -47,14 +47,13 @@ public class c_NewsParser
             .FirstOrDefault(e => e.Attribute("class")?.Value?
             .Contains(className) == true);
 
-    private static string GetFirstText(XNode? node)
-    {
-        if (node is null) return string.Empty;
-        if (node is XElement el) return el.Value.Trim();
-        if (node is XText tx) return tx.Value.Trim();
-
-        return string.Empty;
-    }
+    private static string GetFirstText(XNode? node) =>
+        node switch
+        {
+            XElement el => el.Value.Trim(),
+            XText tx => tx.Value.Trim(),
+            _ => string.Empty,
+        };
 
     private static string? GetImageSrc(XElement article)
     {

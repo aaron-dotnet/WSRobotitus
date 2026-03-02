@@ -26,7 +26,40 @@ internal class Program
         content = content.Replace(navPart, "").Replace("&nbsp;", "").Replace("&hellip;", "");
 
         ParseContent(content);
+
+        // FOOTER:
+        // string footerPart = GetFooter(content);
+        // XElement xe = XElement.Parse(footerPart);
+        // Console.WriteLine(xe);
     }
+
+    private static string GetPagination(string content)
+    {
+        string startStr = "<nav class=\"navigation pagination\">";
+        string endStr = "</nav>";
+        string navPart = GetString(content, startStr, endStr, firstCoincidence: true);
+
+        // Paginación, asi podemos saber cuantas páginas se pueden scrapear.
+        // https://robotitus.com/category/[CATEGORIA]/page/[2,3,...]
+        // La primera página no tiene '/page/1'
+        // ToDo: Implementar la lógica.
+        return navPart;
+    }
+
+    private static string GetFooter(string content)
+    {
+        string startStr = "<footer";
+        string endStr = "</footer>";
+        string footerPart = GetString(content, startStr, endStr, firstCoincidence: true);
+
+
+        footerPart = c_Helper.RemoveHtmlComments(footerPart);
+
+        // Enlaces de las redes de Robotitus y categorias.
+        // ToDo: Implementar la lógica.
+        return footerPart;
+    }
+
     private static void ParseContent(string content)
     {
         c_NewsParser parser = new();
