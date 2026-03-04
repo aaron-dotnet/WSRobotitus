@@ -1,0 +1,121 @@
+using System.Text.RegularExpressions;
+
+public static partial class HtmlExtractors
+{
+    private const string Domain = "robotitus.com";
+
+    private static readonly string[] ExcludedPatterns =
+    [
+        "category", "facebook", "youtube", "twitter", "instagram", "tiktok",
+        "apps.apple", "play.google", "on-cloud", "mailto:"
+    ];
+
+    private static readonly string[] SocialDomains =
+    [
+        "facebook.com", "youtube.com", "twitter.com", "x.com", "instagram.com", "tiktok.com"
+    ];
+
+    private static readonly string[] AppStoreDomains =
+    [
+        "apps.apple.com", "play.google.com"
+    ];
+
+    private static readonly string[] DefaultRelatedChannels =
+    [
+        "El Robot de Platón", "El Robot de Colón"
+    ];
+
+    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
+    private static partial Regex HtmlCommentRegex();
+
+    [GeneratedRegex(@"<a[^>]+href\s*=\s*[""']([^""']+)[""'][^>]*>([\s\S]*?)</a>", RegexOptions.IgnoreCase)]
+    private static partial Regex AnchorTagRegex();
+
+    [GeneratedRegex(@"/category/([^/""']+)/?", RegexOptions.IgnoreCase)]
+    private static partial Regex CategoryPathRegex();
+
+    [GeneratedRegex(@"page/(\d+)", RegexOptions.IgnoreCase)]
+    private static partial Regex PageNumberRegex();
+
+    [GeneratedRegex(@"mailto:([^""'>]+)")]
+    private static partial Regex EmailAddressRegex();
+
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex StripHtmlTagsRegex();
+
+    [GeneratedRegex(@"alt\s*=\s*[""']([^""']+)[""']", RegexOptions.IgnoreCase)]
+    private static partial Regex ExtractAltRegex();
+
+    public static string RemoveHtmlComments(string input) =>
+        HtmlCommentRegex().Replace(input, string.Empty);
+
+    public static List<c_Link> ExtractAnchors(string input) =>
+        AnchorTagRegex().Matches(input)
+            .Select(m =>
+            {
+                string url = m.Groups[1].Value;
+                string innerHtml = m.Groups[2].Value;
+                string name = StripHtmlTagsRegex().Replace(innerHtml, "").Trim();
+
+                if (string.IsNullOrEmpty(name))
+                {
+                    var imgMatch = ExtractAltRegex().Match(innerHtml);
+                    if (imgMatch.Success)
+                        name = imgMatch.Groups[1].Value;
+                }
+
+                return new c_Link(name, url);
+            })
+            .ToList();
+
+    public static List<c_Link> ExtractAnchorsBy(string html, Func<c_Link, bool> filter) =>
+        ExtractAnchors(html).Where(filter).ToList();
+
+    public static List<c_Link> ExtractByDomain(string html, string[] domains, bool exactMatch = false) =>
+        ExtractAnchorsBy(html, link =>
+            exactMatch
+                ? domains.Any(d => Uri.TryCreate(link.Url, UriKind.Absolute, out var u) && u.Host.Equals(d, StringComparison.OrdinalIgnoreCase))
+                : domains.Any(d => link.Url.Contains(d, StringComparison.OrdinalIgnoreCase)));
+
+    public static List<c_Link> ExtractByPath(string html, string[] paths) =>
+        ExtractAnchorsBy(html, link => paths.Any(p => link.Url.Contains(p, StringComparison.OrdinalIgnoreCase)));
+
+    public static List<c_Link> ExtractCategories(string html) =>
+        ExtractAnchorsBy(html, link => CategoryPathRegex().IsMatch(link.Url));
+
+    public static List<c_Link> ExtractSocialNetworks(string html) =>
+        ExtractByDomain(html, SocialDomains);
+
+    public static List<c_Link> ExtractRelatedChannels(string html, string[]? keywords = null) =>
+        ExtractAnchorsBy(html, link =>
+            (keywords ?? DefaultRelatedChannels)
+                .Any(k => link.Name.Contains(k, StringComparison.OrdinalIgnoreCase)));
+
+    public static List<c_Link> ExtractApps(string html) =>
+        ExtractByDomain(html, AppStoreDomains);
+
+    public static List<c_Link> ExtractSiteLinks(string html) =>
+        ExtractAnchorsBy(html, link =>
+            link.Url.Contains(Domain, StringComparison.OrdinalIgnoreCase) &&
+            !ExcludedPatterns.Any(p => link.Url.Contains(p)) &&
+            !string.IsNullOrEmpty(link.Name))
+            .GroupBy(a => a.Name)
+            .Select(g => g.First())
+            .ToList();
+
+    public static string? ExtractContactEmail(string html)
+    {
+        var match = EmailAddressRegex().Match(html);
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    public static int ExtractTotalPages(string content) =>
+        PageNumberRegex().Matches(content)
+            .Select(m => int.TryParse(m.Groups[1].Value, out int p) ? p : 0)
+            .DefaultIfEmpty(1)
+            .Max();
+
+    public static List<string> ExtractPageLinks(string content, string baseUrl) =>
+        [.. Enumerable.Range(1, ExtractTotalPages(content))
+            .Select(i => $"{baseUrl}/page/{i}")];
+}

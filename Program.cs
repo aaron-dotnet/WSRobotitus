@@ -4,6 +4,15 @@ internal class Program
 {
     private static Settings _config = null!;
 
+    private static readonly Dictionary<string, Func<string, List<c_Link>>> FooterExtractors = new()
+    {
+        ["SECCIONES"] = html => HtmlExtractors.ExtractCategories(html),
+        ["REDES SOCIALES"] = html => HtmlExtractors.ExtractSocialNetworks(html),
+        ["CANALES RELACIONADOS"] = html => HtmlExtractors.ExtractRelatedChannels(html, ["El Robot de Platón", "El Robot de Colón"]),
+        ["APLICACIONES"] = html => HtmlExtractors.ExtractApps(html),
+        ["SITIO"] = html => HtmlExtractors.ExtractSiteLinks(html)
+    };
+
     private static async Task Main(string[] args)
     {
         // Cargar configuración
@@ -50,43 +59,15 @@ internal class Program
 
         string footerPart = GetFooter(content);
 
-        var categories = c_Helper.ExtractCategories(footerPart);
-        Console.WriteLine($"\n[SECCIONES] ({categories.Count} encontradas):");
-        foreach (c_Link link in categories)
+        foreach (var (title, extractor) in FooterExtractors)
         {
-            Console.WriteLine($"  - {link.Name}: {link.Url}");
+            var items = extractor(footerPart);
+            Console.WriteLine($"\n[{title}] ({items.Count} encontrados):");
+            foreach (var link in items)
+                Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
-        var social = c_Helper.ExtractSocialNetworks(footerPart);
-        Console.WriteLine($"\n[REDES SOCIALES] ({social.Count} encontradas):");
-        foreach (c_Link link in social)
-        {
-            Console.WriteLine($"  - {link.Name}: {link.Url}");
-        }
-
-        string[] relatedKeywords = { "El Robot de Platón", "El Robot de Colón" };
-        var channels = c_Helper.ExtractRelatedChannels(footerPart, relatedKeywords);
-        Console.WriteLine($"\n[CANALES RELACIONADOS] ({channels.Count} encontrados):");
-        foreach (c_Link link in channels)
-        {
-            Console.WriteLine($"  - {link.Name}: {link.Url}");
-        }
-
-        var apps = c_Helper.ExtractApps(footerPart);
-        Console.WriteLine($"\n[APLICACIONES] ({apps.Count} encontradas):");
-        foreach (c_Link link in apps)
-        {
-            Console.WriteLine($"  - {link.Name}: {link.Url}");
-        }
-
-        var siteLinks = c_Helper.ExtractSiteLinks(footerPart);
-        Console.WriteLine($"\n[SITIO] ({siteLinks.Count} enlaces encontrados):");
-        foreach (c_Link link in siteLinks)
-        {
-            Console.WriteLine($"  - {link.Name}: {link.Url}");
-        }
-
-        var email = c_Helper.ExtractContactEmail(footerPart);
+        var email = HtmlExtractors.ExtractContactEmail(footerPart);
         if (!string.IsNullOrEmpty(email))
         {
             Console.WriteLine($"\n[CONTACTO]:");
@@ -98,10 +79,10 @@ internal class Program
     {
         Console.WriteLine("\n=== PAGINACIÓN ===");
 
-        int totalPages = c_Helper.ExtractTotalPages(content);
+        int totalPages = HtmlExtractors.ExtractTotalPages(content);
         Console.WriteLine($"[INFO] Total de páginas detectadas: {totalPages}");
 
-        var pageLinks = c_Helper.ExtractPageLinks(content, baseUrl);
+        var pageLinks = HtmlExtractors.ExtractPageLinks(content, baseUrl);
         Console.WriteLine($"[INFO] Links de páginas generados: {pageLinks.Count}");
 
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
@@ -141,7 +122,7 @@ internal class Program
     private static string GetFooter(string content)
     {
         string footerPart = GetString(content, "<footer", "</footer>", firstCoincidence: true);
-        return c_Helper.RemoveHtmlComments(footerPart);
+        return HtmlExtractors.RemoveHtmlComments(footerPart);
     }
 
     private static void ParseContent(string content)
