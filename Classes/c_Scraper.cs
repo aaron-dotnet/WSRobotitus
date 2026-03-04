@@ -2,9 +2,9 @@ using System.Net;
 
 public class c_Scraper : IDisposable
 {
-    private HttpClient _client;
-    private HttpClientHandler _handler;
-    private CookieContainer _cookieContainer = new();
+    private readonly HttpClient _client;
+    private readonly HttpClientHandler _handler;
+    private readonly CookieContainer _cookieContainer = new();
     public string Host { get; set; } = string.Empty;
     public string Referer { get; set; } = string.Empty;
     public string Origin { get; set; } = string.Empty;
@@ -18,34 +18,31 @@ public class c_Scraper : IDisposable
             UseCookies = true
         };
         _client = new HttpClient(_handler);
+        SetHeaders();
     }
 
-    private void Headers()
+    private void SetHeaders()
     {
-        string version = "146.0";
-        string userAgent = $"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{version}) Gecko/20100101 Firefox/{version}";
-        _client.DefaultRequestHeaders.Add("User-Agent", userAgent);
-        _client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        _client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.5");
-        _client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br, zstd");
-        _client.DefaultRequestHeaders.Add("Connection", "keep-alive");
-        if (!string.IsNullOrEmpty(Origin))
-        {
-            _client.DefaultRequestHeaders.Add("Origin", Origin);
-        }
-        if (!string.IsNullOrEmpty(Host))
-        {
+        const string VERSION = "146.0";
+        _client.DefaultRequestHeaders.UserAgent.ParseAdd($"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{VERSION}) " +
+                                                         $"Gecko/20100101 Firefox/{VERSION}");
+        _client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        _client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
+        _client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate, br, zstd");
+        _client.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
+
+        if (!string.IsNullOrWhiteSpace(Origin))
+            _client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", Origin);
+
+        if (!string.IsNullOrWhiteSpace(Host))
             _client.DefaultRequestHeaders.Host = Host;
-        }
-        if (!string.IsNullOrEmpty(Referer))
-        {
-            _client.DefaultRequestHeaders.Referrer = new Uri(Referer);
-        }
+
+        if (Uri.TryCreate(Referer, UriKind.Absolute, out var u))
+            _client.DefaultRequestHeaders.Referrer = u;
     }
 
     public async Task<string> Get(string url)
     {
-        Headers();
         using (HttpResponseMessage response = await _client.GetAsync(url))
         {
             if (response.IsSuccessStatusCode)
@@ -54,18 +51,6 @@ public class c_Scraper : IDisposable
             }
         }
 
-        return string.Empty;
-    }
-    public async Task<string> Post(string url, HttpContent content)
-    {
-        Headers();
-        using (HttpResponseMessage response = await _client.PostAsync(url, content))
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                return await response.Content.ReadAsStringAsync();
-            }
-        }
         return string.Empty;
     }
     public void Dispose()

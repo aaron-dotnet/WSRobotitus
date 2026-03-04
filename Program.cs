@@ -2,21 +2,21 @@
 
 internal class Program
 {
-    const string BASE_URL = "robotitus.com";
-    const string BASE_REFERER = "https://robotitus.com/";
-    const int PAGES_TO_SCRAPE = 10;
-
-    static string CATEGORY = "tecnologia";
+    private static Settings _config = null!;
 
     private static async Task Main(string[] args)
     {
+        // Cargar configuración
+        _config = AppConfig.Load("appsettings.json");
+
+        string category = _config.Scraper.DefaultCategory;
         if (args.Length > 0)
         {
-            CATEGORY = args[0].ToLower();
+            category = args[0].ToLower();
         }
 
-        string url = $"https://{BASE_URL}/category/{CATEGORY}";
-        Console.WriteLine($"[INFO] Categoría: {CATEGORY}");
+        string url = $"https://{_config.Scraper.BaseUrl}/category/{category}";
+        Console.WriteLine($"[INFO] Categoría: {category}");
         Console.WriteLine($"[INFO] URL: {url}");
 
         string content = await FetchContent(url);
@@ -27,7 +27,7 @@ internal class Program
             return;
         }
 
-        ExtractFooterInfo(content, url);
+        ExtractFooterInfo(content);
 
         await ScrapePagination(content, url);
 
@@ -37,59 +37,53 @@ internal class Program
     private static async Task<string> FetchContent(string url, string? referer = null)
     {
         Console.WriteLine("[INFO] Descargando contenido desde la web...");
-        using (c_Scraper scraper = new())
-        {
-            scraper.Host = BASE_URL;
-            scraper.Referer = referer ?? BASE_REFERER;
-            return await scraper.Get(url);
-        }
+
+        using c_Scraper scraper = new();
+        scraper.Host = _config.Scraper.BaseUrl;
+        scraper.Referer = referer ?? _config.Scraper.BaseReferer;
+        return await scraper.Get(url);
     }
 
-    private static void ExtractFooterInfo(string content, string baseUrl)
+    private static void ExtractFooterInfo(string content)
     {
         Console.WriteLine("\n=== EXTRACCIÓN DEL FOOTER ===");
 
         string footerPart = GetFooter(content);
-        if (string.IsNullOrEmpty(footerPart))
-        {
-            Console.WriteLine("[WARN] No se encontró el footer");
-            return;
-        }
 
         var categories = c_Helper.ExtractCategories(footerPart);
         Console.WriteLine($"\n[SECCIONES] ({categories.Count} encontradas):");
-        foreach (var (name, url) in categories)
+        foreach (c_Link link in categories)
         {
-            Console.WriteLine($"  - {name}: {url}");
+            Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
         var social = c_Helper.ExtractSocialNetworks(footerPart);
         Console.WriteLine($"\n[REDES SOCIALES] ({social.Count} encontradas):");
-        foreach (var (name, url) in social)
+        foreach (c_Link link in social)
         {
-            Console.WriteLine($"  - {name}: {url}");
+            Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
         string[] relatedKeywords = { "El Robot de Platón", "El Robot de Colón" };
         var channels = c_Helper.ExtractRelatedChannels(footerPart, relatedKeywords);
         Console.WriteLine($"\n[CANALES RELACIONADOS] ({channels.Count} encontrados):");
-        foreach (var (name, url) in channels)
+        foreach (c_Link link in channels)
         {
-            Console.WriteLine($"  - {name}: {url}");
+            Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
         var apps = c_Helper.ExtractApps(footerPart);
         Console.WriteLine($"\n[APLICACIONES] ({apps.Count} encontradas):");
-        foreach (var (name, url) in apps)
+        foreach (c_Link link in apps)
         {
-            Console.WriteLine($"  - {name}: {url}");
+            Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
         var siteLinks = c_Helper.ExtractSiteLinks(footerPart);
         Console.WriteLine($"\n[SITIO] ({siteLinks.Count} enlaces encontrados):");
-        foreach (var (name, url) in siteLinks)
+        foreach (c_Link link in siteLinks)
         {
-            Console.WriteLine($"  - {name}: {url}");
+            Console.WriteLine($"  - {link.Name}: {link.Url}");
         }
 
         var email = c_Helper.ExtractContactEmail(footerPart);
@@ -110,7 +104,7 @@ internal class Program
         var pageLinks = c_Helper.ExtractPageLinks(content, baseUrl);
         Console.WriteLine($"[INFO] Links de páginas generados: {pageLinks.Count}");
 
-        int pagesToProcess = Math.Min(PAGES_TO_SCRAPE, totalPages);
+        int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
         Console.WriteLine($"[INFO] Se procesarán las próximas {pagesToProcess} páginas\n");
 
         string mainContent = GetString(content, "<main", "</main>");

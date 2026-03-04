@@ -1,31 +1,19 @@
 using System.Text.RegularExpressions;
 
-public static partial class c_Helper
+/// <summary>
+/// Utilidades para extracción de información del HTML usando Regex
+/// </summary>
+public static class c_Helper
 {
-    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
-    private static partial Regex HtmlCommentRegex();
-
-    [GeneratedRegex(@"<a[^>]+href\s*=\s*[""']([^""']+)[""'][^>]*>([\s\S]*?)</a>", RegexOptions.IgnoreCase)]
-    private static partial Regex AnchorRegex();
-
-    [GeneratedRegex(@"/category/([^/""]+)/?", RegexOptions.IgnoreCase)]
-    private static partial Regex CategoryRegex();
-
-    [GeneratedRegex(@"(facebook\.com|youtube\.com|twitter\.com|x\.com|instagram\.com|tiktok\.com)", RegexOptions.IgnoreCase)]
-    private static partial Regex SocialNetworkRegex();
-
-    [GeneratedRegex(@"page/(\d+)", RegexOptions.IgnoreCase)]
-    private static partial Regex PageNumberRegex();
-
-    [GeneratedRegex(@"mailto:([^""'>]+)")]
-    private static partial Regex EmailRegex();
-
     public static string RemoveHtmlComments(string input) =>
-        HtmlCommentRegex().Replace(input, string.Empty);
+        RegexPatterns.HtmlComment().Replace(input, string.Empty);
 
+    /// <summary>
+    /// Extrae todos los enlaces &lt;a&gt; del HTML con su URL y nombre
+    /// </summary>
     public static List<c_Link> ExtractAnchors(string input)
     {
-        return AnchorRegex().Matches(input)
+        return RegexPatterns.AnchorTag().Matches(input)
             .Select(m =>
             {
                 string url = m.Groups[1].Value;
@@ -44,40 +32,51 @@ public static partial class c_Helper
             .ToList();
     }
 
-    public static List<c_Link> ExtractByPattern(string html, Func<string, bool> matcher) =>
-        ExtractAnchors(html).Where(a => matcher(a.Url)).ToList();
+    /// <summary>
+    /// Extrae enlaces que coinciden con un filtro personalizado
+    /// </summary>
+    public static List<c_Link> ExtractAnchorsBy(string html, Func<c_Link, bool> filter) =>
+        ExtractAnchors(html).Where(filter).ToList();
 
     public static List<c_Link> ExtractCategories(string html) =>
-        ExtractByPattern(html, url => CategoryRegex().IsMatch(url));
+        ExtractAnchorsBy(html, link => RegexPatterns.CategoryPath().IsMatch(link.Url));
 
     public static List<c_Link> ExtractSocialNetworks(string html) =>
-        ExtractByPattern(html, url => SocialNetworkRegex().IsMatch(url));
+        ExtractAnchorsBy(html, link => RegexPatterns.SocialNetworkUrl().IsMatch(link.Url));
 
     public static List<c_Link> ExtractRelatedChannels(string html, string[] keywords) =>
-        ExtractAnchors(html).Where(a => keywords.Any(k => a.Name.Contains(k, StringComparison.OrdinalIgnoreCase))).ToList();
+        ExtractAnchorsBy(html, link => keywords.Any(k => link.Name.Contains(k, StringComparison.OrdinalIgnoreCase)));
 
     public static List<c_Link> ExtractApps(string html) =>
-        ExtractByPattern(html, url => url.Contains("apps.apple.com") || url.Contains("play.google.com"));
+        ExtractAnchorsBy(html, link => link.Url.Contains("apps.apple.com") || link.Url.Contains("play.google.com"));
 
     public static List<c_Link> ExtractSiteLinks(string html)
     {
         string[] excluded = { "category", "facebook", "youtube", "twitter", "instagram", "tiktok", "apps.apple", "play.google", "on-cloud", "mailto:" };
 
-        return ExtractAnchors(html).Where(a =>
-            !a.Url.StartsWith("http") || a.Url.Contains("robotitus.com"))
-            .Where(a => !excluded.Any(p => a.Url.Contains(p)))
-            .Where(a => !string.IsNullOrEmpty(a.Name))
+        return ExtractAnchorsBy(html, link =>
+            (!link.Url.StartsWith("http") || link.Url.Contains("robotitus.com")) &&
+            !excluded.Any(p => link.Url.Contains(p)) &&
+            !string.IsNullOrEmpty(link.Name))
             .GroupBy(a => a.Name)
             .Select(g => g.First())
             .ToList();
     }
 
-    public static string? ExtractContactEmail(string html) =>
-        EmailRegex().Match(html).Success ? EmailRegex().Match(html).Groups[1].Value : null;
+    public static string? ExtractContactEmail(string html)
+    {
+        var match = RegexPatterns.EmailAddress().Match(html);
+        return match.Success ? match.Groups[1].Value : null;
+    }
 
     public static int ExtractTotalPages(string content) =>
-        PageNumberRegex().Matches(content).Select(m => int.TryParse(m.Groups[1].Value, out int p) ? p : 0).DefaultIfEmpty(1).Max();
+        RegexPatterns.PageNumber().Matches(content)
+            .Select(m => int.TryParse(m.Groups[1].Value, out int p) ? p : 0)
+            .DefaultIfEmpty(1)
+            .Max();
 
     public static List<string> ExtractPageLinks(string content, string baseUrl) =>
-        Enumerable.Range(1, ExtractTotalPages(content)).Select(i => $"{baseUrl}/page/{i}").ToList();
+        Enumerable.Range(1, ExtractTotalPages(content))
+            .Select(i => $"{baseUrl}/page/{i}")
+            .ToList();
 }
