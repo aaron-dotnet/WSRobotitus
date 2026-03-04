@@ -6,9 +6,9 @@ public class NewsParserTests
 {
     // AI test gen
     [Fact]
-    public void Parse_FormatedXml_Returns_Items_WithTitleAndLink()
+    public void Parse_ParsedXml_Returns_Items_WithTitleAndLink()
     {
-        string testFile = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "formated.xml"));
+        string testFile = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "parsed.xml"));
         Assert.True(File.Exists(testFile), $"Fixture file not found: {testFile}");
 
         Console.WriteLine(" - - - Reading file - - - ");
