@@ -82,7 +82,7 @@ internal class Program
         int totalPages = HtmlExtractors.ExtractTotalPages(content);
         Console.WriteLine($"[INFO] Total de páginas detectadas: {totalPages}");
 
-        var pageLinks = HtmlExtractors.ExtractPageLinks(content, baseUrl);
+        var pageLinks = HtmlExtractors.GeneratePageLinks(totalPages, baseUrl);
         Console.WriteLine($"[INFO] Links de páginas generados: {pageLinks.Count}");
 
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using static c_Functions;
 
 public static partial class HtmlExtractors
 {
@@ -109,13 +110,35 @@ public static partial class HtmlExtractors
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    public static int ExtractTotalPages(string content) =>
-        PageNumberRegex().Matches(content)
-            .Select(m => int.TryParse(m.Groups[1].Value, out int p) ? p : 0)
-            .DefaultIfEmpty(1)
-            .Max();
+    public static int ExtractTotalPages(string html)
+    {
+        string start, end, filteredContent;
 
-    public static List<string> ExtractPageLinks(string content, string baseUrl) =>
-        [.. Enumerable.Range(1, ExtractTotalPages(content))
+        // Todo el nav de pagination
+        start = "<nav class=\"navigation pagination\"";
+        end = "</nav>";
+        filteredContent = GetString(html, start, end, firstCoincidence: true);
+
+        // Seccionamos para evitar duplicados
+        start = "<span class=\"page-numbers dots\">";
+        end = "</nav>";
+        filteredContent = GetString(filteredContent, start, end);
+
+        // Link de la última página
+        start = "<a class=\"page-numbers\" href=\"";
+        end = "\">";
+        string link = GetString(filteredContent, start, end, firstCoincidence: true)
+            .Replace(end, string.Empty)
+            .Trim();
+
+        if (string.IsNullOrEmpty(link)) return 1;
+
+        //string? part = link.Split('/').LastOrDefault();
+        return int.TryParse(link.Split('/').Last(), out int pageNum) ? pageNum : 1;
+    }
+
+
+    public static List<string> GeneratePageLinks(int totalPages, string baseUrl) =>
+        [.. Enumerable.Range(1, totalPages)
             .Select(i => $"{baseUrl}/page/{i}")];
 }
