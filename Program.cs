@@ -6,11 +6,11 @@ internal class Program
 
     private static readonly Dictionary<string, Func<string, List<c_Link>>> FooterExtractors = new()
     {
-        ["SECCIONES"] = html => HtmlExtractors.ExtractCategories(html),
-        ["REDES SOCIALES"] = html => HtmlExtractors.ExtractSocialNetworks(html),
+        ["SECCIONES"] = HtmlExtractors.ExtractCategories,
+        ["REDES SOCIALES"] = HtmlExtractors.ExtractSocialNetworks,
         ["CANALES RELACIONADOS"] = html => HtmlExtractors.ExtractRelatedChannels(html, ["El Robot de Platón", "El Robot de Colón"]),
-        ["APLICACIONES"] = html => HtmlExtractors.ExtractApps(html),
-        ["SITIO"] = html => HtmlExtractors.ExtractSiteLinks(html)
+        ["APLICACIONES"] = HtmlExtractors.ExtractApps,
+        ["SITIO"] = HtmlExtractors.ExtractSiteLinks
     };
 
     private static async Task Main(string[] args)
@@ -88,9 +88,7 @@ internal class Program
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
         Console.WriteLine($"[INFO] Se procesarán las próximas {pagesToProcess} páginas\n");
 
-        string mainContent = GetString(content, "<main", "</main>");
-        string navPart = GetString(mainContent, "<nav", "</nav>");
-        string cleanContent = mainContent.Replace(navPart, "").Replace("&nbsp;", "").Replace("&hellip;", "");
+        string mainContent = GetMainContent(content);
 
         for (int i = 1; i <= pagesToProcess; i++)
         {
@@ -98,7 +96,7 @@ internal class Program
 
             if (i == 1)
             {
-                ParseContent(cleanContent);
+                ParseContent(mainContent);
             }
             else
             {
@@ -108,15 +106,22 @@ internal class Program
 
                 if (!string.IsNullOrEmpty(pageContent))
                 {
-                    string pageMain = GetString(pageContent, "<main", "</main>");
-                    string pageNav = GetString(pageMain, "<nav", "</nav>");
-                    string pageClean = pageMain.Replace(pageNav, "").Replace("&nbsp;", "").Replace("&hellip;", "");
-                    ParseContent(pageClean);
+                    mainContent = GetMainContent(pageContent);
+                    ParseContent(mainContent);
                 }
             }
         }
 
         Console.WriteLine($"\n[TOTAL] Páginas procesadas: {pagesToProcess}");
+    }
+
+    private static string GetMainContent(string content)
+    {
+        string mainContent = GetString(content, "<main", "</main>");
+        string navPart = GetString(mainContent, "<nav", "</nav>");
+        string cleanContent = mainContent.Replace(navPart, "").Replace("&nbsp;", "").Replace("&hellip;", "");
+
+        return cleanContent;
     }
 
     private static string GetFooter(string content)

@@ -5,12 +5,6 @@ public static partial class HtmlExtractors
 {
     private const string Domain = "robotitus.com";
 
-    private static readonly string[] ExcludedPatterns =
-    [
-        "category", "facebook", "youtube", "twitter", "instagram", "tiktok",
-        "apps.apple", "play.google", "on-cloud", "mailto:"
-    ];
-
     private static readonly string[] SocialDomains =
     [
         "facebook.com", "youtube.com", "twitter.com", "x.com", "instagram.com", "tiktok.com"
@@ -24,6 +18,11 @@ public static partial class HtmlExtractors
     private static readonly string[] DefaultRelatedChannels =
     [
         "El Robot de Platón", "El Robot de Colón"
+    ];
+
+    private static readonly string[] ExcludedPatterns =
+    [
+        "category", "on-cloud", "mailto:"
     ];
 
     [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
@@ -69,26 +68,26 @@ public static partial class HtmlExtractors
             })
             .ToList();
 
-    public static List<c_Link> ExtractAnchorsBy(string html, Func<c_Link, bool> filter) =>
-        ExtractAnchors(html).Where(filter).ToList();
+    public static List<c_Link> ExtractAnchors(string input, Func<c_Link, bool> filter) =>
+        ExtractAnchors(input).Where(filter).ToList();
 
     public static List<c_Link> ExtractByDomain(string html, string[] domains, bool exactMatch = false) =>
-        ExtractAnchorsBy(html, link =>
+        ExtractAnchors(html, link =>
             exactMatch
                 ? domains.Any(d => Uri.TryCreate(link.Url, UriKind.Absolute, out var u) && u.Host.Equals(d, StringComparison.OrdinalIgnoreCase))
                 : domains.Any(d => link.Url.Contains(d, StringComparison.OrdinalIgnoreCase)));
 
     public static List<c_Link> ExtractByPath(string html, string[] paths) =>
-        ExtractAnchorsBy(html, link => paths.Any(p => link.Url.Contains(p, StringComparison.OrdinalIgnoreCase)));
+        ExtractAnchors(html, link => paths.Any(p => link.Url.Contains(p, StringComparison.OrdinalIgnoreCase)));
 
     public static List<c_Link> ExtractCategories(string html) =>
-        ExtractAnchorsBy(html, link => CategoryPathRegex().IsMatch(link.Url));
+        ExtractAnchors(html, link => CategoryPathRegex().IsMatch(link.Url));
 
     public static List<c_Link> ExtractSocialNetworks(string html) =>
         ExtractByDomain(html, SocialDomains);
 
     public static List<c_Link> ExtractRelatedChannels(string html, string[]? keywords = null) =>
-        ExtractAnchorsBy(html, link =>
+        ExtractAnchors(html, link =>
             (keywords ?? DefaultRelatedChannels)
                 .Any(k => link.Name.Contains(k, StringComparison.OrdinalIgnoreCase)));
 
@@ -96,9 +95,11 @@ public static partial class HtmlExtractors
         ExtractByDomain(html, AppStoreDomains);
 
     public static List<c_Link> ExtractSiteLinks(string html) =>
-        ExtractAnchorsBy(html, link =>
+        ExtractAnchors(html, link =>
             link.Url.Contains(Domain, StringComparison.OrdinalIgnoreCase) &&
             !ExcludedPatterns.Any(p => link.Url.Contains(p)) &&
+            !SocialDomains.Any(d => link.Url.Contains(d)) &&
+            !AppStoreDomains.Any(d => link.Url.Contains(d)) &&
             !string.IsNullOrEmpty(link.Name))
             .GroupBy(a => a.Name)
             .Select(g => g.First())
