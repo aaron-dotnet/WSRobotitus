@@ -137,9 +137,4 @@ public static partial class HtmlExtractors
         //string? part = link.Split('/').LastOrDefault();
         return int.TryParse(link.Split('/').Last(), out int pageNum) ? pageNum : 1;
     }
-
-
-    public static List<string> GeneratePageLinks(int totalPages, string baseUrl) =>
-        [.. Enumerable.Range(1, totalPages)
-            .Select(i => $"{baseUrl}/page/{i}")];
 }

@@ -3,6 +3,7 @@
 internal class Program
 {
     private static Settings _config = null!;
+    private static c_Scraper _scraper = null!;
 
     private static readonly Dictionary<string, Func<string, List<c_Link>>> FooterExtractors = new()
     {
@@ -28,17 +29,22 @@ internal class Program
         Console.WriteLine($"[INFO] Categoría: {category}");
         Console.WriteLine($"[INFO] URL: {url}");
 
-        string content = await FetchContent(url);
-
-        if (string.IsNullOrEmpty(content))
+        using (_scraper = new c_Scraper())
         {
-            Console.WriteLine("[ERROR] No se pudo obtener el contenido");
-            return;
+            _scraper.Host = _config.Scraper.BaseUrl;
+
+            string content = await FetchContent(url);
+
+            if (string.IsNullOrEmpty(content))
+            {
+                Console.WriteLine("[ERROR] No se pudo obtener el contenido");
+                return;
+            }
+
+            ExtractFooterInfo(content);
+
+            await ScrapePagination(content, url);
         }
-
-        ExtractFooterInfo(content);
-
-        await ScrapePagination(content, url);
 
         Console.WriteLine("\n=== PROCESO COMPLETADO ===");
     }
@@ -47,10 +53,8 @@ internal class Program
     {
         Console.WriteLine("[INFO] Descargando contenido desde la web...");
 
-        using c_Scraper scraper = new();
-        scraper.Host = _config.Scraper.BaseUrl;
-        scraper.Referer = referer ?? _config.Scraper.BaseReferer;
-        return await scraper.Get(url);
+        _scraper.Referer = referer ?? _config.Scraper.BaseReferer;
+        return await _scraper.Get(url);
     }
 
     private static void ExtractFooterInfo(string content)
@@ -82,34 +86,34 @@ internal class Program
         int totalPages = HtmlExtractors.ExtractTotalPages(content);
         Console.WriteLine($"[INFO] Total de páginas detectadas: {totalPages}");
 
-        var pageLinks = HtmlExtractors.GeneratePageLinks(totalPages, baseUrl);
-        Console.WriteLine($"[INFO] Links de páginas generados: {pageLinks.Count}");
-
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
         Console.WriteLine($"[INFO] Se procesarán las próximas {pagesToProcess} páginas\n");
 
         string mainContent = GetMainContent(content);
+        ParseContent(mainContent);
 
-        for (int i = 1; i <= pagesToProcess; i++)
+        if (pagesToProcess > 1)
         {
-            Console.WriteLine($"--- Página {i}/{pagesToProcess} ---");
-
-            if (i == 1)
+            var tasks = new List<Task>();
+            
+            for (int i = 2; i <= pagesToProcess; i++)
             {
-                ParseContent(mainContent);
-            }
-            else
-            {
-                string pageUrl = $"{baseUrl}/page/{i}";
-                string referer = i > 2 ? $"{baseUrl}/page/{i - 1}" : baseUrl;
-                string pageContent = await FetchContent(pageUrl, referer);
-
-                if (!string.IsNullOrEmpty(pageContent))
+                int pageNum = i;
+                tasks.Add(Task.Run(async () =>
                 {
-                    mainContent = GetMainContent(pageContent);
-                    ParseContent(mainContent);
-                }
+                    string pageUrl = $"{baseUrl}/page/{pageNum}";
+                    string referer = pageNum > 2 ? $"{baseUrl}/page/{pageNum - 1}" : baseUrl;
+                    string pageContent = await FetchContent(pageUrl, referer);
+
+                    if (!string.IsNullOrEmpty(pageContent))
+                    {
+                        string pageMain = GetMainContent(pageContent);
+                        ParseContent(pageMain);
+                    }
+                }));
             }
+
+            await Task.WhenAll(tasks);
         }
 
         Console.WriteLine($"\n[TOTAL] Páginas procesadas: {pagesToProcess}");
