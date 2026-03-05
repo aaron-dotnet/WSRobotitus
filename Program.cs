@@ -51,7 +51,7 @@ internal class Program
 
     private static async Task<string> FetchContent(string url, string? referer = null)
     {
-        Console.WriteLine("[INFO] Descargando contenido desde la web...");
+        //Console.WriteLine("[INFO] Descargando contenido desde la web...");
 
         _scraper.Referer = referer ?? _config.Scraper.BaseReferer;
         return await _scraper.Get(url);
@@ -95,7 +95,7 @@ internal class Program
         if (pagesToProcess > 1)
         {
             var tasks = new List<Task>();
-            
+
             for (int i = 2; i <= pagesToProcess; i++)
             {
                 int pageNum = i;
@@ -138,6 +138,11 @@ internal class Program
     {
         c_NewsParser parser = new();
         List<c_NewsItem> news = parser.Parse(content);
+
+        foreach (c_NewsItem thisnew in news)
+        {
+            System.Console.WriteLine($"{thisnew.Author} - {thisnew.Title} | {thisnew.Date:dd/MM/yyyy}");
+        }
 
         Console.WriteLine($"  -> {news.Count} artículos extraídos");
     }
