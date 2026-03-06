@@ -31,9 +31,7 @@ internal class Program
 
         using (_scraper = new c_Scraper())
         {
-            _scraper.Host = _config.Scraper.BaseUrl;
-
-            string content = await FetchContent(url);
+            string content = await FetchContent(url, referer: _config.Scraper.BaseReferer, host: _config.Scraper.BaseUrl);
 
             if (string.IsNullOrEmpty(content))
             {
@@ -49,12 +47,9 @@ internal class Program
         Console.WriteLine("\n=== PROCESO COMPLETADO ===");
     }
 
-    private static async Task<string> FetchContent(string url, string? referer = null)
+    private static async Task<string> FetchContent(string url, string? referer = null, string? host = null)
     {
-        //Console.WriteLine("[INFO] Descargando contenido desde la web...");
-
-        _scraper.Referer = referer ?? _config.Scraper.BaseReferer;
-        return await _scraper.Get(url);
+        return await _scraper.Get(url, referer ?? _config.Scraper.BaseReferer, host);
     }
 
     private static void ExtractFooterInfo(string content)
@@ -65,13 +60,17 @@ internal class Program
 
         foreach (var (title, extractor) in FooterExtractors)
         {
-            var items = extractor(footerPart);
-            Console.WriteLine($"\n[{title}] ({items.Count} encontrados):");
-            foreach (var link in items)
+            List<c_Link> allLinks = extractor(footerPart);
+
+            Console.WriteLine($"\n[{title}] ({allLinks.Count} encontrados):");
+
+            foreach (c_Link link in allLinks)
+            {
                 Console.WriteLine($"  - {link.Name}: {link.Url}");
+            }
         }
 
-        var email = HtmlExtractors.ExtractContactEmail(footerPart);
+        string? email = HtmlExtractors.ExtractContactEmail(footerPart);
         if (!string.IsNullOrEmpty(email))
         {
             Console.WriteLine($"\n[CONTACTO]:");
@@ -94,21 +93,31 @@ internal class Program
 
         if (pagesToProcess > 1)
         {
-            var tasks = new List<Task>();
+            // Limitado a tres concurrencias
+            using var semaphore = new SemaphoreSlim(3);
+            List<Task> tasks = [];
 
             for (int i = 2; i <= pagesToProcess; i++)
             {
                 int pageNum = i;
                 tasks.Add(Task.Run(async () =>
                 {
-                    string pageUrl = $"{baseUrl}/page/{pageNum}";
-                    string referer = pageNum > 2 ? $"{baseUrl}/page/{pageNum - 1}" : baseUrl;
-                    string pageContent = await FetchContent(pageUrl, referer);
-
-                    if (!string.IsNullOrEmpty(pageContent))
+                    await semaphore.WaitAsync();
+                    try
                     {
-                        string pageMain = GetMainContent(pageContent);
-                        ParseContent(pageMain);
+                        string pageUrl = $"{baseUrl}/page/{pageNum}";
+                        string referer = pageNum > 2 ? $"{baseUrl}/page/{pageNum - 1}" : baseUrl;
+                        string pageContent = await FetchContent(pageUrl, referer, _config.Scraper.BaseUrl);
+
+                        if (!string.IsNullOrEmpty(pageContent))
+                        {
+                            string pageMain = GetMainContent(pageContent);
+                            ParseContent(pageMain);
+                        }
+                    }
+                    finally
+                    {
+                        semaphore.Release();
                     }
                 }));
             }
@@ -141,7 +150,7 @@ internal class Program
 
         foreach (c_NewsItem thisnew in news)
         {
-            System.Console.WriteLine($"{thisnew.Author} - {thisnew.Title} | {thisnew.Date:dd/MM/yyyy}");
+            Console.WriteLine($"{thisnew.Date:dd/MM/yyyy} | {thisnew.Author} - {thisnew.Title}");
         }
 
         Console.WriteLine($"  -> {news.Count} artículos extraídos");
