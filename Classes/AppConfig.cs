@@ -40,7 +40,8 @@ public static class AppConfig
         BaseUrl = elem.GetProperty("BaseUrl").GetString() ?? "robotitus.com",
         BaseReferer = elem.GetProperty("BaseReferer").GetString() ?? "https://robotitus.com/",
         DefaultCategory = elem.GetProperty("DefaultCategory").GetString() ?? "tecnologia",
-        PagesToScrape = elem.GetProperty("PagesToScrape").GetInt32()
+        PagesToScrape = elem.GetProperty("PagesToScrape").GetInt32(),
+        ArticlesToScrape = elem.TryGetProperty("ArticlesToScrape", out var a) ? a.GetInt32() : 0
     };
 
     private static OutputConfig ParseOutputConfig(JsonElement elem) => new()
@@ -80,6 +81,7 @@ public class ScraperConfig
     public string BaseReferer { get; set; } = string.Empty;
     public string DefaultCategory { get; set; } = string.Empty;
     public int PagesToScrape { get; set; }
+    public int ArticlesToScrape { get; set; }
 }
 
 public class OutputConfig

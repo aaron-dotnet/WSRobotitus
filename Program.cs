@@ -88,12 +88,12 @@ internal class Program
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
         Console.WriteLine($"[INFO] Se procesarán las próximas {pagesToProcess} páginas\n");
 
+        List<c_NewsItem> allNews = [];
         string mainContent = GetMainContent(content);
-        ParseContent(mainContent);
+        allNews.AddRange(ParseContent(mainContent, print: false));
 
         if (pagesToProcess > 1)
         {
-            // Limitado a tres concurrencias
             using var semaphore = new SemaphoreSlim(3);
             List<Task> tasks = [];
 
@@ -112,7 +112,10 @@ internal class Program
                         if (!string.IsNullOrEmpty(pageContent))
                         {
                             string pageMain = GetMainContent(pageContent);
-                            ParseContent(pageMain);
+                            lock (allNews)
+                            {
+                                allNews.AddRange(ParseContent(pageMain, print: false));
+                            }
                         }
                     }
                     finally
@@ -125,7 +128,12 @@ internal class Program
             await Task.WhenAll(tasks);
         }
 
-        Console.WriteLine($"\n[TOTAL] Páginas procesadas: {pagesToProcess}");
+        Console.WriteLine($"\n[TOTAL] Artículos encontrados: {allNews.Count}");
+
+        if (_config.Scraper.ArticlesToScrape > 0)
+        {
+            await ScrapeArticles(allNews);
+        }
     }
 
     private static string GetMainContent(string content)
@@ -143,16 +151,93 @@ internal class Program
         return HtmlExtractors.RemoveHtmlComments(footerPart);
     }
 
-    private static void ParseContent(string content)
+    private static List<c_NewsItem> ParseContent(string content, bool print = true)
     {
         c_NewsParser parser = new();
         List<c_NewsItem> news = parser.Parse(content);
 
-        foreach (c_NewsItem thisnew in news)
+        if (print)
         {
-            Console.WriteLine($"{thisnew.Date:dd/MM/yyyy} | {thisnew.Author} - {thisnew.Title}");
+            foreach (c_NewsItem thisnew in news)
+            {
+                Console.WriteLine($"{thisnew.Date:dd/MM/yyyy} | {thisnew.Author} - {thisnew.Title}");
+            }
+
+            Console.WriteLine($"  -> {news.Count} artículos extraídos");
         }
 
-        Console.WriteLine($"  -> {news.Count} artículos extraídos");
+        return news;
+    }
+
+    private static string GetArticleContent(string article)
+    {
+        string start = "<div class=\"entry-content post-content\">";
+        string end = "<footer class=\"entry-footer\">";
+
+        string content = GetString(article, start, end).Replace(end, string.Empty);
+
+        string adsBlock = "<div class='code-block code-block";
+        while (content.Contains(adsBlock))
+        {
+            // quitamos los bloques de publicidad
+            string part = GetString(content, adsBlock, "</div>", firstCoincidence: true);
+            if (!string.IsNullOrEmpty(part))
+                content = content.Replace(part, string.Empty);
+        }
+
+        // Convertir etiquetas p en saltos de línea
+        content = content.Replace("</p>", "\n");
+        content = content.Replace("<h2>", "## ").Replace("</h2>", "\n");
+        content = content.Replace("<h3>", "### ").Replace("</h3>", "\n");
+
+        content = HtmlExtractors.StripHtmlTags(content);
+        content = HtmlExtractors.CleanWhitespace(content);
+
+        // Eliminar espacios al inicio de cada línea
+        var lines = content.Split('\n');
+        content = string.Join("\n", lines.Select(l => l.Trim()));
+
+        return content.Trim();
+    }
+
+    private static async Task ScrapeArticles(List<c_NewsItem> articles)
+    {
+        Console.WriteLine("\n=== ARTÍCULOS ===");
+        int articlesToProcess = Math.Min(_config.Scraper.ArticlesToScrape, articles.Count);
+        Console.WriteLine($"[INFO] Se procesarán los próximos {articlesToProcess} artículos\n");
+
+        using var semaphore = new SemaphoreSlim(3);
+        var tasks = new List<Task<c_Article>>();
+
+        for (int i = 0; i < articlesToProcess; i++)
+        {
+            int index = i;
+            tasks.Add(Task.Run(async () =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    var article = articles[index];
+                    Console.WriteLine($"[{index + 1}] Obteniendo: {article.Title}");
+
+                    string articleHtml = await FetchContent(article.Link, referer: article.Link, host: _config.Scraper.BaseUrl);
+
+                    if (!string.IsNullOrEmpty(articleHtml))
+                    {
+                        string articleContent = GetArticleContent(articleHtml);
+                        //Console.WriteLine($"    Contenido: {articleContent.Substring(0, Math.Min(100, articleContent.Length))}...");
+                        Console.WriteLine($"    Contenido: \n{articleContent}");
+                        Console.WriteLine("\n- - - - - - - - - - - - \n");
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+                return new c_Article("", "", "", "", "", DateTime.Now, "", "", 0);
+            }));
+        }
+
+        await Task.WhenAll(tasks);
     }
 }

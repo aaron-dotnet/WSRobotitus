@@ -34,9 +34,6 @@ public static partial class HtmlExtractors
     [GeneratedRegex(@"/category/([^/""']+)/?", RegexOptions.IgnoreCase)]
     private static partial Regex CategoryPathRegex();
 
-    [GeneratedRegex(@"page/(\d+)", RegexOptions.IgnoreCase)]
-    private static partial Regex PageNumberRegex();
-
     [GeneratedRegex(@"mailto:([^""'>]+)")]
     private static partial Regex EmailAddressRegex();
 
@@ -46,8 +43,16 @@ public static partial class HtmlExtractors
     [GeneratedRegex(@"alt\s*=\s*[""']([^""']+)[""']", RegexOptions.IgnoreCase)]
     private static partial Regex ExtractAltRegex();
 
+    [GeneratedRegex(@"[^\S\n]+")]
+    private static partial Regex CleanWhitespaceRegex();
     public static string RemoveHtmlComments(string input) =>
         HtmlCommentRegex().Replace(input, string.Empty);
+
+    public static string StripHtmlTags(string input) =>
+        StripHtmlTagsRegex().Replace(input, string.Empty);
+
+    public static string CleanWhitespace(string input) =>
+        CleanWhitespaceRegex().Replace(input, " ");
 
     public static List<c_Link> ExtractAnchors(string input) =>
         AnchorTagRegex().Matches(input)
