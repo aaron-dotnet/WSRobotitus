@@ -7,11 +7,15 @@ internal class Program
 
     private static readonly Dictionary<string, Func<string, List<c_Link>>> FooterExtractors = new()
     {
-        ["SECCIONES"] = HtmlExtractors.ExtractCategories,
-        ["REDES SOCIALES"] = HtmlExtractors.ExtractSocialNetworks,
-        ["CANALES RELACIONADOS"] = html => HtmlExtractors.ExtractRelatedChannels(html, ["El Robot de Platón", "El Robot de Colón"]),
-        ["APLICACIONES"] = HtmlExtractors.ExtractApps,
-        ["SITIO"] = HtmlExtractors.ExtractSiteLinks
+        ["SECCIONES"] = html => [.. HtmlExtractors.ExtractAllAnchors(html).Where(LinkFilters.IsCategory)],
+        ["REDES SOCIALES"] = html => [.. HtmlExtractors.ExtractAllAnchors(html).Where(LinkFilters.IsSocialNetwork)],
+        ["CANALES RELACIONADOS"] = html => [.. HtmlExtractors.ExtractAllAnchors(html)
+            .Where(link => LinkFilters.IsRelatedChannel(link, ["El Robot de Platón", "El Robot de Colón"]))],
+        ["APLICACIONES"] = html => [.. HtmlExtractors.ExtractAllAnchors(html).Where(LinkFilters.IsApp)],
+        ["SITIO"] = html => [.. HtmlExtractors.ExtractAllAnchors(html)
+            .Where(LinkFilters.IsSiteLink)
+            .GroupBy(link => link.Name)
+            .Select(group => group.First())]
     };
 
     private static async Task Main(string[] args)
@@ -194,7 +198,7 @@ internal class Program
         content = HtmlExtractors.CleanWhitespace(content);
 
         // Eliminar espacios al inicio de cada línea
-        var lines = content.Split('\n');
+        string[] lines = content.Split('\n');
         content = string.Join("\n", lines.Select(l => l.Trim()));
 
         return content.Trim();
@@ -207,7 +211,7 @@ internal class Program
         Console.WriteLine($"[INFO] Se procesarán los próximos {articlesToProcess} artículos\n");
 
         using var semaphore = new SemaphoreSlim(3);
-        var tasks = new List<Task<c_Article>>();
+        List<Task<c_Article>> tasks = [];
 
         for (int i = 0; i < articlesToProcess; i++)
         {
@@ -217,17 +221,17 @@ internal class Program
                 await semaphore.WaitAsync();
                 try
                 {
-                    var article = articles[index];
+                    c_NewsItem article = articles[index];
                     Console.WriteLine($"[{index + 1}] Obteniendo: {article.Title}");
 
                     string articleHtml = await FetchContent(article.Link, referer: article.Link, host: _config.Scraper.BaseUrl);
 
                     if (!string.IsNullOrEmpty(articleHtml))
                     {
+                        Console.WriteLine($"\n{new string('-', 40)}\n");
                         string articleContent = GetArticleContent(articleHtml);
-                        //Console.WriteLine($"    Contenido: {articleContent.Substring(0, Math.Min(100, articleContent.Length))}...");
-                        Console.WriteLine($"    Contenido: \n{articleContent}");
-                        Console.WriteLine("\n- - - - - - - - - - - - \n");
+                        Console.WriteLine($"    Contenido: {articleContent[..Math.Min(100, articleContent.Length)]}...");
+                        //Console.WriteLine($"    Contenido: \n{articleContent}");
                     }
                 }
                 finally

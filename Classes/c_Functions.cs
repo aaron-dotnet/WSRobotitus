@@ -1,6 +1,3 @@
-using System.IO;
-using System.Text;
-
 public static class c_Functions
 {
     private static readonly Lazy<string> _configPath = new(() => InitializeConfigPath());
@@ -43,10 +40,6 @@ public static class c_Functions
                 Console.WriteLine($"Error al escribir log: {ex.Message}");
             }
         }
-    }
-    public static void SaveToFile(string fileName, string content)
-    {
-        File.WriteAllText(fileName, content, Encoding.UTF8);
     }
     public static string GetString(string fullString, string startStr, string endStr,
                                     int excessAmount = 0, bool firstCoincidence = false)

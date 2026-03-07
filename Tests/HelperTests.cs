@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 public class HelperTests
@@ -20,7 +21,8 @@ public class HelperTests
     [Fact]
     public void ExtractCategories_Returns10Categories()
     {
-        var categories = HtmlExtractors.ExtractCategories(_footerHtml);
+        var allLinks = HtmlExtractors.ExtractAllAnchors(_footerHtml);
+        var categories = allLinks.Where(LinkFilters.IsCategory).ToList();
         
         Assert.Equal(10, categories.Count);
         Assert.Contains(categories, c => c.Name.Contains("ESPACIO"));
@@ -30,7 +32,8 @@ public class HelperTests
     [Fact]
     public void ExtractSocialNetworks_ReturnsAtLeast2Networks()
     {
-        var social = HtmlExtractors.ExtractSocialNetworks(_footerHtml);
+        var allLinks = HtmlExtractors.ExtractAllAnchors(_footerHtml);
+        var social = allLinks.Where(LinkFilters.IsSocialNetwork).ToList();
         
         Assert.True(social.Count >= 2);
         Assert.Contains(social, s => s.Name.Contains("facebook", StringComparison.OrdinalIgnoreCase));
@@ -41,7 +44,8 @@ public class HelperTests
     public void ExtractRelatedChannels_Returns2Channels()
     {
         string[] keywords = { "El Robot de Platón", "El Robot de Colón" };
-        var channels = HtmlExtractors.ExtractRelatedChannels(_footerHtml, keywords);
+        var allLinks = HtmlExtractors.ExtractAllAnchors(_footerHtml);
+        var channels = allLinks.Where(l => LinkFilters.IsRelatedChannel(l, keywords)).ToList();
         
         Assert.Equal(2, channels.Count);
         Assert.Contains(channels, c => c.Name.Contains("El Robot de Platón"));
@@ -51,7 +55,8 @@ public class HelperTests
     [Fact]
     public void ExtractApps_Returns2Apps()
     {
-        var apps = HtmlExtractors.ExtractApps(_footerHtml);
+        var allLinks = HtmlExtractors.ExtractAllAnchors(_footerHtml);
+        var apps = allLinks.Where(LinkFilters.IsApp).ToList();
         
         Assert.Equal(2, apps.Count);
         Assert.Contains(apps, a => a.Url.Contains("apps.apple.com"));
@@ -61,7 +66,8 @@ public class HelperTests
     [Fact]
     public void ExtractSiteLinks_Returns5Links()
     {
-        var siteLinks = HtmlExtractors.ExtractSiteLinks(_footerHtml);
+        var allLinks = HtmlExtractors.ExtractAllAnchors(_footerHtml);
+        var siteLinks = allLinks.Where(LinkFilters.IsSiteLink).GroupBy(l => l.Name).Select(g => g.First()).ToList();
         
         Assert.Equal(5, siteLinks.Count);
         Assert.Contains(siteLinks, l => l.Name.Contains("Inicio"));
@@ -80,7 +86,7 @@ public class HelperTests
     [Fact]
     public void ExtractAnchors_ReturnsMultipleLinks()
     {
-        var anchors = HtmlExtractors.ExtractAnchors(_footerHtml);
+        var anchors = HtmlExtractors.ExtractAllAnchors(_footerHtml);
         
         Assert.NotEmpty(anchors);
         Assert.All(anchors, a => Assert.False(string.IsNullOrEmpty(a.Url)));
