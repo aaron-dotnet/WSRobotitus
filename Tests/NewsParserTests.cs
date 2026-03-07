@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Xunit;
+using WSRobotitus.Classes;
 
 public class NewsParserTests
 {
@@ -13,7 +14,7 @@ public class NewsParserTests
 
         Console.WriteLine(" - - - Reading file - - - ");
         string content = File.ReadAllText(testFile);
-        var parser = new c_NewsParser();
+        var parser = new NewsParser();
         var list = parser.Parse(content);
         Console.WriteLine(" - - - Content Parsed - - - ");
 

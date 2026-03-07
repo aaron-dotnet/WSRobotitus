@@ -2,13 +2,14 @@ using System;
 using System.IO;
 using System.Linq;
 using Xunit;
+using WSRobotitus.Classes;
 
 public class ArticleTests
 {
     [Fact]
     public void c_Article_Extends_c_NewsItem()
     {
-        var article = new c_Article(
+        var article = new Article(
             "Test Title",
             "https://robotitus.com/test",
             "https://robotitus.com/image.jpg",
