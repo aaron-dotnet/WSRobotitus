@@ -1,6 +1,9 @@
-public enum LogLevel
+namespace WSRobotitus.Enums
 {
-    INFO,
-    WARN,
-    ERROR
+    public enum LogLevel
+    {
+        INFO,
+        WARN,
+        ERROR
+    }
 }

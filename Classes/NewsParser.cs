@@ -1,30 +1,31 @@
-using System.Xml.Linq;
-using static c_Functions;
+namespace WSRobotitus.Classes;
 
-public class c_NewsParser
+using System.Xml.Linq;
+using WSRobotitus.Enums;
+
+public class NewsParser
 {
-    public List<c_NewsItem> Parse(string content)
+    public List<NewsItem> Parse(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return [];
 
         try
         {
             XElement root = XElement.Parse(content);
-            var articles = root.Descendants("div")
+            List<NewsItem> articles = [.. root.Descendants("div")
                 .Where(d => d.Attribute("class")?.Value?
                 .Contains("news-post") == true)
-                .Select(ExtractNewsItem)
-                .ToList();
+                .Select(ExtractNewsItem)];
 
             return articles;
         }
         catch (Exception ex)
         {
-            Log(ex.Message, LogLevel.ERROR);
+            Helper.Log(ex.Message, LogLevel.ERROR);
             return [];
         }
     }
-    private c_NewsItem ExtractNewsItem(XElement article)
+    private NewsItem ExtractNewsItem(XElement article)
     {
         XElement? h2 = article.Descendants("h2").FirstOrDefault();
         XElement? meta = GetByClass(article, "entry-meta");
@@ -32,7 +33,7 @@ public class c_NewsParser
 
         XElement? anchor = h2?.Element("a");
 
-        return new c_NewsItem(
+        return new NewsItem(
             Title: GetFirstText(anchor),
             Link: anchor?.Attribute("href")?.Value ?? string.Empty,
             ImageLink: GetImageSrc(article) ?? string.Empty,
@@ -82,6 +83,6 @@ public class c_NewsParser
         string? dateStr = meta.Descendants("time")
             .FirstOrDefault()?.Attribute("datetime")?.Value;
 
-        return DateTime.TryParse(dateStr, out var result) ? result : DateTime.MinValue;
+        return DateTime.TryParse(dateStr, out DateTime result) ? result : DateTime.MinValue;
     }
 }

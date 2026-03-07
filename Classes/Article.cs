@@ -1,4 +1,6 @@
-public record c_Article(
+namespace WSRobotitus.Classes;
+
+public record Article(
     string Title,
     string Link,
     string ImageLink,
@@ -8,4 +10,4 @@ public record c_Article(
     string Content,
     string Category,
     int ReadingTimeMinutes
-) : c_NewsItem(Title, Link, ImageLink, Description, Author, Date);
+) : NewsItem(Title, Link, ImageLink, Description, Author, Date);

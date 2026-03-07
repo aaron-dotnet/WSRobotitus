@@ -1,11 +1,11 @@
-﻿using static c_Functions;
+﻿using WSRobotitus.Classes;
 
 internal class Program
 {
     private static Settings _config = null!;
-    private static c_Scraper _scraper = null!;
+    private static Scraper _scraper = null!;
 
-    private static readonly Dictionary<string, Func<string, List<c_Link>>> FooterExtractors = new()
+    private static readonly Dictionary<string, Func<string, List<Link>>> FooterExtractors = new()
     {
         ["SECCIONES"] = html => [.. HtmlExtractors.ExtractAllAnchors(html).Where(LinkFilters.IsCategory)],
         ["REDES SOCIALES"] = html => [.. HtmlExtractors.ExtractAllAnchors(html).Where(LinkFilters.IsSocialNetwork)],
@@ -33,7 +33,7 @@ internal class Program
         Console.WriteLine($"[INFO] Categoría: {category}");
         Console.WriteLine($"[INFO] URL: {url}");
 
-        using (_scraper = new c_Scraper())
+        using (_scraper = new Scraper())
         {
             string content = await FetchContent(url, referer: _config.Scraper.BaseReferer, host: _config.Scraper.BaseUrl);
 
@@ -64,11 +64,11 @@ internal class Program
 
         foreach (var (title, extractor) in FooterExtractors)
         {
-            List<c_Link> allLinks = extractor(footerPart);
+            List<Link> allLinks = extractor(footerPart);
 
             Console.WriteLine($"\n[{title}] ({allLinks.Count} encontrados):");
 
-            foreach (c_Link link in allLinks)
+            foreach (Link link in allLinks)
             {
                 Console.WriteLine($"  - {link.Name}: {link.Url}");
             }
@@ -92,7 +92,7 @@ internal class Program
         int pagesToProcess = Math.Min(_config.Scraper.PagesToScrape, totalPages);
         Console.WriteLine($"[INFO] Se procesarán las próximas {pagesToProcess} páginas\n");
 
-        List<c_NewsItem> allNews = [];
+        List<NewsItem> allNews = [];
         string mainContent = GetMainContent(content);
         allNews.AddRange(ParseContent(mainContent, print: false));
 
@@ -142,8 +142,8 @@ internal class Program
 
     private static string GetMainContent(string content)
     {
-        string mainContent = GetString(content, "<main", "</main>");
-        string navPart = GetString(mainContent, "<nav", "</nav>");
+        string mainContent = Helper.GetString(content, "<main", "</main>");
+        string navPart = Helper.GetString(mainContent, "<nav", "</nav>");
         string cleanContent = mainContent.Replace(navPart, "").Replace("&nbsp;", "").Replace("&hellip;", "");
 
         return cleanContent;
@@ -151,18 +151,18 @@ internal class Program
 
     private static string GetFooter(string content)
     {
-        string footerPart = GetString(content, "<footer", "</footer>", firstCoincidence: true);
+        string footerPart = Helper.GetString(content, "<footer", "</footer>", firstCoincidence: true);
         return HtmlExtractors.RemoveHtmlComments(footerPart);
     }
 
-    private static List<c_NewsItem> ParseContent(string content, bool print = true)
+    private static List<NewsItem> ParseContent(string content, bool print = true)
     {
-        c_NewsParser parser = new();
-        List<c_NewsItem> news = parser.Parse(content);
+        NewsParser parser = new();
+        List<NewsItem> news = parser.Parse(content);
 
         if (print)
         {
-            foreach (c_NewsItem thisnew in news)
+            foreach (NewsItem thisnew in news)
             {
                 Console.WriteLine($"{thisnew.Date:dd/MM/yyyy} | {thisnew.Author} - {thisnew.Title}");
             }
@@ -178,13 +178,13 @@ internal class Program
         string start = "<div class=\"entry-content post-content\">";
         string end = "<footer class=\"entry-footer\">";
 
-        string content = GetString(article, start, end).Replace(end, string.Empty);
+        string content = Helper.GetString(article, start, end).Replace(end, string.Empty);
 
         string adsBlock = "<div class='code-block code-block";
         while (content.Contains(adsBlock))
         {
             // quitamos los bloques de publicidad
-            string part = GetString(content, adsBlock, "</div>", firstCoincidence: true);
+            string part = Helper.GetString(content, adsBlock, "</div>", firstCoincidence: true);
             if (!string.IsNullOrEmpty(part))
                 content = content.Replace(part, string.Empty);
         }
@@ -204,14 +204,14 @@ internal class Program
         return content.Trim();
     }
 
-    private static async Task ScrapeArticles(List<c_NewsItem> articles)
+    private static async Task ScrapeArticles(List<NewsItem> articles)
     {
         Console.WriteLine("\n=== ARTÍCULOS ===");
         int articlesToProcess = Math.Min(_config.Scraper.ArticlesToScrape, articles.Count);
         Console.WriteLine($"[INFO] Se procesarán los próximos {articlesToProcess} artículos\n");
 
         using var semaphore = new SemaphoreSlim(3);
-        List<Task<c_Article>> tasks = [];
+        List<Task<Article>> tasks = [];
 
         for (int i = 0; i < articlesToProcess; i++)
         {
@@ -221,7 +221,7 @@ internal class Program
                 await semaphore.WaitAsync();
                 try
                 {
-                    c_NewsItem article = articles[index];
+                    NewsItem article = articles[index];
                     Console.WriteLine($"[{index + 1}] Obteniendo: {article.Title}");
 
                     string articleHtml = await FetchContent(article.Link, referer: article.Link, host: _config.Scraper.BaseUrl);
@@ -238,7 +238,7 @@ internal class Program
                 {
                     semaphore.Release();
                 }
-                return new c_Article("", "", "", "", "", DateTime.Now, "", "", 0);
+                return new Article("", "", "", "", "", DateTime.Now, "", "", 0);
             }));
         }
 

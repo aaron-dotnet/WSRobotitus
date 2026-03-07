@@ -1,4 +1,6 @@
-public record c_NewsItem(
+namespace WSRobotitus.Classes;
+
+public record NewsItem(
     string Title,
     string Link,
     string ImageLink,

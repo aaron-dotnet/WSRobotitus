@@ -1,3 +1,5 @@
+namespace WSRobotitus.Classes;
+
 using System.Text.RegularExpressions;
 
 public static partial class HtmlExtractors
@@ -30,7 +32,7 @@ public static partial class HtmlExtractors
     public static string CleanWhitespace(string input) =>
         CleanWhitespaceRegex().Replace(input, " ");
 
-    public static List<c_Link> ExtractAllAnchors(string input)
+    public static List<Link> ExtractAllAnchors(string input)
     {
         return [.. AnchorTagRegex()
             .Matches(input)
@@ -47,7 +49,7 @@ public static partial class HtmlExtractors
                         name = imgMatch.Groups[1].Value;
                 }
 
-                return new c_Link(name, url);
+                return new Link(name, url);
             })];
     }
 
@@ -63,15 +65,15 @@ public static partial class HtmlExtractors
 
         start = "<nav class=\"navigation pagination\"";
         end = "</nav>";
-        filteredContent = c_Functions.GetString(html, start, end, firstCoincidence: true);
+        filteredContent = Helper.GetString(html, start, end, firstCoincidence: true);
 
         start = "<span class=\"page-numbers dots\">";
         end = "</nav>";
-        filteredContent = c_Functions.GetString(filteredContent, start, end);
+        filteredContent = Helper.GetString(filteredContent, start, end);
 
         start = "<a class=\"page-numbers\" href=\"";
         end = "\">";
-        string link = c_Functions.GetString(filteredContent, start, end, firstCoincidence: true)
+        string link = Helper.GetString(filteredContent, start, end, firstCoincidence: true)
             .Replace(end, string.Empty)
             .Trim();
 
@@ -103,35 +105,35 @@ public static partial class LinkFilters
     [GeneratedRegex(@"/category/([^/""']+)/?", RegexOptions.IgnoreCase)]
     private static partial Regex CategoryPathRegex();
 
-    public static bool IsCategory(c_Link link) =>
+    public static bool IsCategory(Link link) =>
         CategoryPathRegex().IsMatch(link.Url);
 
-    public static bool IsSocialNetwork(c_Link link) =>
+    public static bool IsSocialNetwork(Link link) =>
         MatchByDomain(link, SocialDomains);
 
-    public static bool IsApp(c_Link link) =>
+    public static bool IsApp(Link link) =>
         MatchByDomain(link, AppStoreDomains);
 
-    public static bool IsSiteLink(c_Link siteLink)
+    public static bool IsSiteLink(Link siteLink)
     {
         return siteLink switch
         {
             null => false,
-            c_Link link when string.IsNullOrEmpty(link.Name) => false,
-            c_Link link when !link.Url.Contains(Domain, StringComparison.OrdinalIgnoreCase) => false,
-            c_Link link when ExcludedPatterns.Any(link.Url.Contains) => false,
-            c_Link link when SocialDomains.Any(link.Url.Contains) => false,
-            c_Link link when AppStoreDomains.Any(link.Url.Contains) => false,
+            Link link when string.IsNullOrEmpty(link.Name) => false,
+            Link link when !link.Url.Contains(Domain, StringComparison.OrdinalIgnoreCase) => false,
+            Link link when ExcludedPatterns.Any(link.Url.Contains) => false,
+            Link link when SocialDomains.Any(link.Url.Contains) => false,
+            Link link when AppStoreDomains.Any(link.Url.Contains) => false,
             _ => true,
         };
     }
 
-    public static bool IsRelatedChannel(c_Link link, string[]? keywords = null)
+    public static bool IsRelatedChannel(Link link, string[]? keywords = null)
     {
         string[]? terms = keywords ?? DefaultRelatedChannels;
         return terms.Any(keyword => link.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool MatchByDomain(c_Link link, string[] domains) =>
+    private static bool MatchByDomain(Link link, string[] domains) =>
         domains.Any(d => link.Url.Contains(d, StringComparison.OrdinalIgnoreCase));
 }

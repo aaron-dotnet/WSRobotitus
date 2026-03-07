@@ -1,4 +1,7 @@
+namespace WSRobotitus.Classes;
+
 using System.Text.Json;
+using WSRobotitus.Enums;
 
 public static class AppConfig
 {
@@ -12,7 +15,7 @@ public static class AppConfig
         {
             if (!File.Exists(configPath))
             {
-                c_Functions.Log($"Archivo de configuración no encontrado: {configPath}", LogLevel.WARN);
+                Helper.Log($"Archivo de configuración no encontrado: {configPath}", LogLevel.WARN);
                 _settings = GetDefaultSettings();
                 return _settings;
             }
@@ -28,7 +31,7 @@ public static class AppConfig
         }
         catch (Exception ex)
         {
-            c_Functions.Log($"Error al cargar configuración: {ex.Message}", LogLevel.ERROR);
+            Helper.Log($"Error al cargar configuración: {ex.Message}", LogLevel.ERROR);
             _settings = GetDefaultSettings();
         }
 
@@ -41,7 +44,7 @@ public static class AppConfig
         BaseReferer = elem.GetProperty("BaseReferer").GetString() ?? "https://robotitus.com/",
         DefaultCategory = elem.GetProperty("DefaultCategory").GetString() ?? "tecnologia",
         PagesToScrape = elem.GetProperty("PagesToScrape").GetInt32(),
-        ArticlesToScrape = elem.TryGetProperty("ArticlesToScrape", out var a) ? a.GetInt32() : 0
+        ArticlesToScrape = elem.TryGetProperty("ArticlesToScrape", out JsonElement article) ? article.GetInt32() : 0
     };
 
     private static OutputConfig ParseOutputConfig(JsonElement elem) => new()
@@ -58,7 +61,8 @@ public static class AppConfig
             BaseUrl = "robotitus.com",
             BaseReferer = "https://robotitus.com/",
             DefaultCategory = "tecnologia",
-            PagesToScrape = 10
+            PagesToScrape = 3,
+            ArticlesToScrape = 3
         },
         Output = new OutputConfig
         {

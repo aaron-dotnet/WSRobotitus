@@ -1,4 +1,8 @@
-public static class c_Functions
+using WSRobotitus.Enums;
+
+namespace WSRobotitus.Classes;
+
+public static class Helper
 {
     private static readonly Lazy<string> _configPath = new(() => InitializeConfigPath());
     private static readonly Lock _syncLock = new();

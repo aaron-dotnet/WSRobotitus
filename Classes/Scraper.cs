@@ -1,6 +1,8 @@
+namespace WSRobotitus.Classes;
+
 using System.Net;
 
-public class c_Scraper : IDisposable
+public class Scraper : IDisposable
 {
     private readonly HttpClient _client;
     private readonly SocketsHttpHandler _handler;
@@ -13,7 +15,7 @@ public class c_Scraper : IDisposable
     private const int MaxRetries = 3;
     private const int TimeoutSeconds = 30;
 
-    public c_Scraper()
+    public Scraper()
     {
         _handler = new SocketsHttpHandler()
         {
@@ -48,7 +50,7 @@ public class c_Scraper : IDisposable
         if (!string.IsNullOrWhiteSpace(Host))
             headers.Host = Host;
 
-        if (Uri.TryCreate(Referer, UriKind.Absolute, out var url))
+        if (Uri.TryCreate(Referer, UriKind.Absolute, out Uri? url))
             headers.Referrer = url;
     }
 
@@ -57,7 +59,7 @@ public class c_Scraper : IDisposable
         if (!string.IsNullOrEmpty(host))
             _client.DefaultRequestHeaders.Host = host;
 
-        if (Uri.TryCreate(referer ?? Referer, UriKind.Absolute, out var refererUri))
+        if (Uri.TryCreate(referer ?? Referer, UriKind.Absolute, out Uri? refererUri))
             _client.DefaultRequestHeaders.Referrer = refererUri;
 
         int attempt = 0;
